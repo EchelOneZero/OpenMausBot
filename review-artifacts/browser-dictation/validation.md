@@ -16,6 +16,7 @@ All server/browser mutations use disposable fake-engine workspaces.
 | Locale catalogs | Passed; 16 languages |
 | Electron syntax | 320 modules passed |
 | Broker tests | 102 passed |
+| Packaged server smoke | Passed without node_modules; proxy paths, MCP, CLI, encrypted backup, container/desktop entry and enterprise lookup |
 | Electron Node suite | 1,406 passed, 8 skipped, 2 environment failures reproduced on upstream |
 | Full Vitest suite | Running; final outcome pending |
 
@@ -25,4 +26,6 @@ The optional CPU worker was also exercised with generated English speech and a p
 
 Physical microphone and OS permission prompts, Safari/mobile capture and real-world recognition quality require manual checks.
 
-Publication through the connected GitHub integration returned HTTP 403, "Resource not accessible by integration", for creating a PR in the upstream repository. The feature branch and evidence are available in the fork.
+Upstream PR: [#3875](https://github.com/milind-soni/OpenMausBot/pull/3875), open as a draft, head `ae28ca4816f279f6dd2b20604f2649f725ff99e1`, reported mergeable by GitHub. The user created it through GitHub after the integration returned HTTP 403 for PR creation.
+
+Hosted checks currently pending maintainer action: GitHub CI and Docker workflows report `action_required`, with no jobs started. Vercel's failed preview status links to team authorization. No hosted test pass is claimed.
