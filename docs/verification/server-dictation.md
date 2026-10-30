@@ -45,6 +45,12 @@ empty speech and error redaction without downloading a model:
 python -B -m unittest discover -s deploy/dictation -p test_server.py
 ```
 
+The worker fixture also sends a trickling upload against an absolute deadline,
+checks the HTTP 408 response, rejects an incomplete body with HTTP 400, and
+proves that both failures release the inference slot without invoking the model.
+The Windows component fixture declares its desktop platform before the first
+mount, so it checks the Windows capability path and browser fallback.
+
 The worker checks include browser Origin/fetch metadata, unexpected or
 duplicate Host headers, simple browser Content-Types, and refusal before
 inference even when an authorized transcription is already running.

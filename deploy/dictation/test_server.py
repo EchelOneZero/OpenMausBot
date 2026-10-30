@@ -1,5 +1,6 @@
 import io
 import json
+import socket
 import threading
 import unittest
 import urllib.error
@@ -9,6 +10,7 @@ from contextlib import redirect_stderr
 from http.client import HTTPConnection
 from http.server import ThreadingHTTPServer
 from types import SimpleNamespace
+from unittest.mock import patch
 
 import server
 
@@ -129,6 +131,73 @@ class DictationTests(unittest.TestCase):
                     self.assertEqual(response.status, 403)
             finally:
                 connection.close()
+
+    def test_rejects_trickling_upload_and_releases_slot(self):
+        calls = []
+
+        def transcribe(_audio, **_options):
+            calls.append(True)
+            return iter([SimpleNamespace(text="Reviewed text.")]), None
+
+        with patch.object(server, "UPLOAD_TIMEOUT", 0.2, create=True), self.worker(SimpleNamespace(transcribe=transcribe)) as base:
+            connection = HTTPConnection("127.0.0.1", int(base.rsplit(":", 1)[1]), timeout=3)
+            stopped = threading.Event()
+            sender = None
+            try:
+                connection.putrequest("POST", "/transcribe")
+                connection.putheader("Content-Type", "audio/wav")
+                connection.putheader("Content-Length", "12")
+                connection.endheaders()
+                stream = connection.sock
+
+                def trickle():
+                    for _ in range(12):
+                        if stopped.is_set():
+                            return
+                        try:
+                            stream.sendall(b"x")
+                        except OSError:
+                            return
+                        if stopped.wait(0.05):
+                            return
+
+                sender = threading.Thread(target=trickle)
+                sender.start()
+                with connection.getresponse() as response:
+                    stopped.set()
+                    self.assertEqual((response.status, json.load(response)), (408, {"error": {"code": "invalid_audio"}}))
+            finally:
+                stopped.set()
+                if sender:
+                    sender.join(3)
+                    self.assertFalse(sender.is_alive())
+                connection.close()
+            self.assertEqual(calls, [])
+            self.assertEqual(self.post(base, wav()), (200, {"text": "Reviewed text."}))
+            self.assertEqual(calls, [True])
+
+    def test_rejects_incomplete_upload_and_releases_slot(self):
+        calls = []
+
+        def transcribe(_audio, **_options):
+            calls.append(True)
+            return iter([SimpleNamespace(text="Reviewed text.")]), None
+
+        with self.worker(SimpleNamespace(transcribe=transcribe)) as base:
+            connection = HTTPConnection("127.0.0.1", int(base.rsplit(":", 1)[1]), timeout=3)
+            try:
+                connection.putrequest("POST", "/transcribe")
+                connection.putheader("Content-Type", "audio/wav")
+                connection.putheader("Content-Length", "12")
+                connection.endheaders(b"x")
+                connection.sock.shutdown(socket.SHUT_WR)
+                with connection.getresponse() as response:
+                    self.assertEqual((response.status, json.load(response)), (400, {"error": {"code": "invalid_audio"}}))
+            finally:
+                connection.close()
+            self.assertEqual(calls, [])
+            self.assertEqual(self.post(base, wav()), (200, {"text": "Reviewed text."}))
+            self.assertEqual(calls, [True])
 
     @staticmethod
     def post(base, audio, headers=None):

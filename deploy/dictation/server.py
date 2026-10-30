@@ -3,12 +3,14 @@ import json
 import os
 import sys
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import av
 import numpy as np
 
 MAX_BYTES = 10 * 1024 * 1024
+UPLOAD_TIMEOUT = 20
 MAX_SECONDS = 120
 SAMPLE_RATE = 16000
 AUDIO_TYPES = {"audio/webm", "audio/ogg", "audio/mp4", "audio/wav", "audio/x-wav", "audio/mpeg"}
@@ -85,6 +87,29 @@ def handler_for(model):
                 return
             self.reply(200, {"ready": True}) if self.path == "/health" else self.reply(404, {"error": {"code": "not_found"}})
 
+        def read_upload(self, size):
+            deadline = time.monotonic() + UPLOAD_TIMEOUT
+            data = bytearray()
+            previous_timeout = self.connection.gettimeout()
+            try:
+                while len(data) < size:
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        raise AudioError("invalid_audio", 408)
+                    self.connection.settimeout(remaining)
+                    try:
+                        chunk = self.rfile.read1(min(size - len(data), 64 * 1024))
+                    except TimeoutError:
+                        raise AudioError("invalid_audio", 408) from None
+                    if not chunk:
+                        raise AudioError("invalid_audio", 400)
+                    if time.monotonic() >= deadline:
+                        raise AudioError("invalid_audio", 408)
+                    data.extend(chunk)
+            finally:
+                self.connection.settimeout(previous_timeout)
+            return data
+
         def do_POST(self):
             if not self.trusted_request():
                 return
@@ -95,7 +120,7 @@ def handler_for(model):
             if not occupied.acquire(blocking=False):
                 return self.reply(429, {"error": {"code": "busy"}})
             try:
-                self.connection.settimeout(20)
+                self.connection.settimeout(UPLOAD_TIMEOUT)
                 try:
                     size = int(self.headers.get("Content-Length", "0"))
                 except ValueError:
@@ -104,9 +129,7 @@ def handler_for(model):
                     raise AudioError("invalid_audio", 400)
                 if size > MAX_BYTES:
                     raise AudioError("too_large", 413)
-                data = self.rfile.read(size)
-                if len(data) != size:
-                    raise AudioError("invalid_audio", 400)
+                data = self.read_upload(size)
                 audio = decode_bounded_audio(data)
                 del data
                 language = self.headers.get("X-Dictation-Language", "").lower()

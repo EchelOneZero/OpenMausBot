@@ -50,7 +50,7 @@ describe("recording for review in the real composer", () => {
   const click = async (label: string) => act(async () => { button(label).click(); });
   const mount = async (profile = bot) => act(async () => { root.render(createElement(Composer, { bot: profile })); });
 
-  beforeEach(async () => {
+  beforeEach(() => {
     vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
     vi.spyOn(HTMLElement.prototype, "scrollIntoView").mockImplementation(() => {});
     vi.stubGlobal("isSecureContext", true);
@@ -71,7 +71,6 @@ describe("recording for review in the real composer", () => {
     fixture.dispatch.mockClear();
     restoreComposerDraft(draftId, { text: "", attachments: [] });
     container = document.createElement("div");document.body.append(container);root = createRoot(container);
-    await mount();
   });
   afterEach(async () => {
     await act(async () => root.unmount());container.remove();
@@ -85,7 +84,8 @@ describe("recording for review in the real composer", () => {
 
   it.each(["web", "windows"])("puts the %s transcript in the draft and sends only on an explicit click", async platform => {
     const native = vi.fn();
-    if (platform === "windows") window.ogb = { speechStart: native } as unknown as typeof window.ogb;
+    if (platform === "windows") window.ogb = { platform: "win32", speechStart: native } as unknown as typeof window.ogb;
+    await mount();
     await click(t("composer.dictation.start"));
     expect(getUserMedia).toHaveBeenCalledOnce();
     expect(native).not.toHaveBeenCalled();
@@ -103,6 +103,7 @@ describe("recording for review in the real composer", () => {
   });
 
   it("cancels capture without uploading audio or changing the draft", async () => {
+    await mount();
     await act(async () => restoreComposerDraft(draftId, { text: "Existing draft", attachments: [] }));
     await click(t("composer.dictation.start"));
     await click(t("composer.dictation.cancel"));
@@ -110,6 +111,7 @@ describe("recording for review in the real composer", () => {
   });
 
   it("rejects a late result after cancel or switching conversations", async () => {
+    await mount();
     await click(t("composer.dictation.start"));await click(t("composer.dictation.stop"));
     await click(t("composer.dictation.cancel"));
     await act(async () => complete("Cancelled text"));
@@ -122,6 +124,7 @@ describe("recording for review in the real composer", () => {
   });
 
   it("preserves edits made while transcribing and blocks sending until text is ready", async () => {
+    await mount();
     await act(async () => restoreComposerDraft(draftId, { text: "First", attachments: [] }));
     await click(t("composer.dictation.start"));await click(t("composer.dictation.stop"));
     expect(button(t("composer.send.message")).disabled).toBe(true);
@@ -132,6 +135,7 @@ describe("recording for review in the real composer", () => {
   });
 
   it("shows microphone refusal without uploading anything", async () => {
+    await mount();
     getUserMedia.mockRejectedValueOnce(new DOMException("Not permitted", "NotAllowedError"));
     await click(t("composer.dictation.start"));
     expect(container.textContent).toContain(t("composer.dictation.microphonePermission"));
@@ -139,6 +143,7 @@ describe("recording for review in the real composer", () => {
   });
 
   it("keeps recorded audio when the draft is edited while recording", async () => {
+    await mount();
     await click(t("composer.dictation.start"));
     await act(async () => {
       Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!.call(input(), "Typed while recording:");
@@ -152,6 +157,7 @@ describe("recording for review in the real composer", () => {
   });
 
   it("clears microphone errors when moving to another conversation", async () => {
+    await mount();
     getUserMedia.mockRejectedValueOnce(new DOMException("Not permitted", "NotAllowedError"));
     await click(t("composer.dictation.start"));
     expect(container.textContent).toContain(t("composer.dictation.microphonePermission"));
@@ -160,6 +166,7 @@ describe("recording for review in the real composer", () => {
   });
 
   it("releases a microphone granted after cancellation", async () => {
+    await mount();
     let grant!: (stream: unknown) => void;
     getUserMedia.mockImplementationOnce(() => new Promise(resolve => { grant = resolve; }));
     await click(t("composer.dictation.start"));
@@ -172,6 +179,7 @@ describe("recording for review in the real composer", () => {
   });
 
   it("hides capture without HTTPS or a supported recording format", async () => {
+    await mount();
     vi.stubGlobal("isSecureContext", false);
     await mount();
     expect(button(t("composer.dictation.start"))).toBeUndefined();
@@ -183,6 +191,7 @@ describe("recording for review in the real composer", () => {
   });
 
   it("stops the microphone when leaving a recording conversation", async () => {
+    await mount();
     await click(t("composer.dictation.start"));
     await mount({ ...bot, threadId: "draft-b" });
     expect(trackStop).toHaveBeenCalledOnce();
@@ -191,6 +200,7 @@ describe("recording for review in the real composer", () => {
   });
 
   it("stops before the strict server duration limit", async () => {
+    await mount();
     vi.useFakeTimers();
     try {
       await click(t("composer.dictation.start"));
@@ -203,6 +213,7 @@ describe("recording for review in the real composer", () => {
   });
 
   it("Escape cancels transcription before clearing a quoted reply", async () => {
+    await mount();
     const clearReply = vi.fn();
     await act(async () => root.render(createElement(Composer, { bot,
       replyTo: { id: "quoted", role: "user", kind: "text", text: "Quoted message", at: 1 },
@@ -217,6 +228,7 @@ describe("recording for review in the real composer", () => {
   });
 
   it.each(["microphone", "body", "transcribing"])("Escape cancels when focus is on %s rather than the textarea", async focus => {
+    await mount();
     await act(async () => restoreComposerDraft(draftId, { text: "Preserved draft", attachments: [] }));
     await click(t("composer.dictation.start"));
     if (focus === "transcribing") await click(t("composer.dictation.stop"));
@@ -242,6 +254,7 @@ describe("recording for review in the real composer", () => {
   });
 
   it("Escape on the body discards a microphone granted after cancellation", async () => {
+    await mount();
     let grant!: (stream: unknown) => void;
     getUserMedia.mockImplementationOnce(() => new Promise(resolve => { grant = resolve; }));
     await click(t("composer.dictation.start"));
@@ -254,6 +267,7 @@ describe("recording for review in the real composer", () => {
   });
 
   it.each([{ isComposing: true }, { keyCode: 229 }])("preserves IME composition before cancelling from the microphone button: %j", async composition => {
+    await mount();
     await click(t("composer.dictation.start"));
     button(t("composer.dictation.stop")).focus();
     const escape = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true, ...composition });
