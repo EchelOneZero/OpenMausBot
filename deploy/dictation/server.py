@@ -1,6 +1,7 @@
 import io
 import json
 import os
+import sys
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -119,7 +120,8 @@ def handler_for(model):
                 self.reply(200, {"text": text})
             except AudioError as error:
                 self.reply(error.status, {"error": {"code": error.code}})
-            except Exception:
+            except Exception as error:
+                print(f"transcription failed: {type(error).__name__}", file=sys.stderr, flush=True)
                 self.reply(503, {"error": {"code": "unavailable"}})
             finally:
                 occupied.release()

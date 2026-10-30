@@ -5,6 +5,7 @@ import unittest
 import urllib.error
 import urllib.request
 import wave
+from contextlib import redirect_stderr
 from http.client import HTTPConnection
 from http.server import ThreadingHTTPServer
 from types import SimpleNamespace
@@ -35,6 +36,7 @@ class DictationTests(unittest.TestCase):
     def test_only_one_inference_and_no_internal_error_details(self):
         started = threading.Event()
         release = threading.Event()
+        diagnostics = io.StringIO()
 
         def transcribe(_audio, **_options):
             started.set()
@@ -42,7 +44,7 @@ class DictationTests(unittest.TestCase):
                 raise RuntimeError("fixture timed out")
             raise RuntimeError("private model path must not be returned")
 
-        with self.worker(SimpleNamespace(transcribe=transcribe)) as base:
+        with redirect_stderr(diagnostics), self.worker(SimpleNamespace(transcribe=transcribe)) as base:
             first = []
             thread = threading.Thread(target=lambda: first.append(self.post(base, wav())))
             thread.start()
@@ -56,6 +58,7 @@ class DictationTests(unittest.TestCase):
             self.assertFalse(thread.is_alive())
             self.assertEqual(first, [(503, {"error": {"code": "unavailable"}})])
             self.assertEqual(self.post(base, wav()), (503, {"error": {"code": "unavailable"}}))
+        self.assertEqual(diagnostics.getvalue(), "transcription failed: RuntimeError\n" * 2)
 
     def test_protocol_and_empty_speech(self):
         options = []

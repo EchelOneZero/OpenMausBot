@@ -48,6 +48,9 @@ python -B -m unittest discover -s deploy/dictation -p test_server.py
 The worker checks include browser Origin/fetch metadata, unexpected or
 duplicate Host headers, simple browser Content-Types, and refusal before
 inference even when an authorized transcription is already running.
+Unexpected inference errors return only a generic response. The worker writes
+only the exception class to stderr; the test checks that diagnostic output
+excludes exception messages and private model paths.
 
 To check real recognition, separately stage a model as described in
 [server dictation](../server-dictation.md), generate a WAV containing synthetic
