@@ -1,39 +1,50 @@
 # Browser dictation validation
 
-Feature head: `ae28ca4816f279f6dd2b20604f2649f725ff99e1`
-Comparison base: `f71928c15d2043cd8562877d350e189b859767ba`
-Environment: Linux, Node 24.22.1, pnpm 10.33.0.
-All server/browser mutations use disposable fake-engine workspaces.
+Current feature head: `f0933b2e96860b5966f3e09eb4bd94cb61f96426`
+Comparison base: `d124292a2aafcbed61f7ac58a0b975231df92da2`
+Verified Git tree: `acfb7752795250f4281e6d646d3dcfb2e7bb15b1`
+Environment: Linux, Node 24.22.1, pnpm 10.33.0; current upstream package version 0.1.134.
+All mutating checks use disposable fake-engine workspaces and synthetic audio.
+
+## Review findings addressed
+
+- [Worker request boundary](https://github.com/milind-soni/OpenMausBot/pull/3875#discussion_r4419280394): the example worker requires its exact IPv4 loopback Host, rejects Origin and browser-only fetch metadata, and accepts only audio Content-Types before acquiring the inference slot or decoding. Tests cover empty/null Origin, rebinding and duplicate Host, simple browser uploads, and refusal while an authorized inference is already running. Backend Node fetch remains compatible with its automatic Sec-Fetch-Mode: cors header. Local processes remain inside the operator's documented trust boundary.
+- [Escape outside the textarea](https://github.com/milind-soni/OpenMausBot/pull/3875#discussion_r4419280438): a document capture listener is installed only while browser dictation is pending. It respects IME composition/keyCode 229, cancels from the microphone button or body, preserves quoted replies, discards late results/grants, and is removed on completion/unmount. Completed capture releases its stream reference.
+
+The added regressions first failed against the previous implementation: six composer cases failed and the worker checks demonstrated unauthorized requests reaching inference. They pass after the corrections.
+
+## Checks on this revision
 
 | Check | Result |
 | --- | --- |
-| Targeted API/auth/composer/native-dictation/IME tests | 103 passed across 7 files |
-| Real Chromium browser fixture after rebase | 1 passed; actual MediaRecorder WebM through the workspace API; synthetic input and deterministic transcription stand-in |
-| Optional Python worker tests | 3 passed; actual decoding, duration bounds, inference serialization and sanitized errors |
-| TypeScript checks | Passed |
-| Production UI build | `pnpm exec vite build` passed |
+| Targeted API/auth/composer/native-dictation/IME/size/control tests | 109 passed across 7 files |
+| Additional composer layouts, menus, queues and background API checks | 44 passed across 5 files |
+| Real Chromium browser fixture | 1 passed; actual MediaRecorder WebM; Escape from the microphone button during recording and from the body during transcription; cancelled results discarded; exactly one explicit Send |
+| Optional Python worker | 6 tests passed; real audio decoding and hostile request rejection before inference |
+| TypeScript checks | Passed, including final check after the last source edit |
 | Lint | Passed |
-| Locale catalogs | Passed; 16 languages |
-| Electron syntax | 320 modules passed |
-| Broker tests | 102 passed |
+| Locale catalogs | Passed; 16 languages, 6,929 English strings |
+| Production UI build | Passed |
 | Packaged server smoke | Passed without node_modules; proxy paths, MCP, CLI, encrypted backup, container/desktop entry and enterprise lookup |
-| Electron Node suite | 1,406 passed, 8 skipped, 2 environment failures reproduced on upstream |
-| Broad Vitest run (`--bail=1`) | 3,670 passed, 4 skipped, 1 timeout; 32 files passed; stopped early, entire 2,021-file suite not completed |
+| Electron syntax | 322 modules passed |
+| Final packaged API to actual offline worker | Passed in a disposable home with generated Portuguese speech; compiled UI served; no chat message created |
 
-The broad run stopped at `server/workspace-backup.test.ts`, "rejects authenticated credential metadata, saved auth paths, and connection-bearing config", after its existing 20,000 ms timeout. The same case timed out on the exact upstream comparison base `f71928c15d2043cd8562877d350e189b859767ba`, including a standalone run without the feature test running alongside it. The feature branch also reproduced it in isolation. The backup implementation and this test are unchanged by the PR. No timeout or assertion was relaxed.
+The real-model check proves integration, not recognition accuracy. Its synthetic phrase contained recognition errors, so no quality benchmark is claimed.
 
-The two Electron failures are `cloud-sync-scan.node-test.mjs` (chmod cannot deny root) and `use-my-mac.node-test.mjs` (temporary-directory sharing against a separate temporary filesystem). Both reproduce in the upstream checkout, and the feature does not alter Electron sources.
+Conflicts in the composer imports and Brazilian Portuguese catalog were resolved while preserving current upstream changes. GitHub reported the updated PR mergeable after publication. No generated build output is included in the source PR.
 
-The optional CPU worker was also exercised with generated English speech and a pre-staged offline model. It returned a complete sentence with one word substitution ("review" → "renew"). This single phrase is not an accuracy benchmark. Text remains in the draft for human review.
+## Manual check and production scope
 
-Manual microphone follow-up: the user confirmed microphone capture, transcription into the draft and no automatic sending in their current browser after applying the same feature patch to a self-hosted v0.1.132 installation. Browser and OS versions were not recorded. This confirms that one real client works; other platforms, Safari/mobile capture and recognition quality still require manual checks.
+The user previously confirmed physical microphone capture, text insertion into the draft and no automatic sending in their current browser, using the feature backported to a self-hosted v0.1.132 installation. Browser and OS versions were not recorded. That manual check predates this correction commit. Other platforms, Safari/mobile behavior and recognition quality still need manual checks.
 
-The v0.1.132 deployment candidate separately passed the 103 targeted tests, the Chromium fixture, three worker tests, type checking, lint, locale validation, production builds and packaged-server smoke. A disposable copy of the final package also transcribed generated Portuguese speech through the offline model without creating a chat message. Production was checked using read-only health/status and asset requests; no synthetic chat messages were sent there.
+This revision updates the contribution branch. It does not deploy the upstream v0.1.134 merge or restart the production application.
 
-Upstream PR: [#3875](https://github.com/milind-soni/OpenMausBot/pull/3875), open and ready for review (`draft: false`), head `ae28ca4816f279f6dd2b20604f2649f725ff99e1`, reported mergeable by GitHub. The user created it through GitHub after the integration returned HTTP 403 for PR creation.
+## Whole-suite and hosted CI limits
 
-Hosted checks currently pending maintainer action: GitHub CI and Docker workflows report `action_required`, with no jobs started. Vercel's failed preview status links to team authorization. No hosted test pass is claimed.
+The entire repository suite has not been declared green for this revision. The earlier broad Vitest and Electron environment audit remains available in the [previous validation report](https://github.com/EchelOneZero/OpenMausBot/blob/7da665bdc223be6c7031dfd2ceced6ec80b61351/review-artifacts/browser-dictation/validation.md). Those results concern the previous feature head and comparison base, not this new merge.
 
-Local verification is concluded for this contribution. The feature-specific checks passed; the complete repository suite has not been declared green. Hosted CI and remaining platform checks are pending; the user's current-browser microphone check has passed.
+That earlier run stopped after 3,670 passes, four skips and the existing workspace-backup timeout. The same timeout was reproduced on the exact unmodified comparison base. Two Electron failures also reproduced upstream in the root/temporary-filesystem environment. No unrelated assertion or timeout was relaxed. The complete broad suite and broker suite were not rerun for this correction; current checks are listed above.
 
-The author marked the PR ready for review. CodeRabbit began processing the 22 changed files. GitHub CI and Docker runs still require maintainer action. The integration could not update the upstream PR description (HTTP 403), so the manual validation is recorded in this linked report.
+GitHub-hosted CI remains subject to maintainer authorization for this external contribution. No hosted pass or maintainer approval is claimed. The integration cannot edit the upstream PR description or reply to its review threads (HTTP 403); this report is already linked from the PR body and records the fixes without requiring that permission.
+
+Upstream PR: [#3875](https://github.com/milind-soni/OpenMausBot/pull/3875), open and ready for review.

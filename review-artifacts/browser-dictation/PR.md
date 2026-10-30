@@ -1,27 +1,36 @@
-Upstream PR: [#3875 — optional browser dictation](https://github.com/milind-soni/OpenMausBot/pull/3875) (draft).
+# Browser dictation PR #3875
+
+[Open the existing upstream pull request](https://github.com/milind-soni/OpenMausBot/pull/3875).
+
+The corrected code is already on the existing PR. The GitHub integration returned HTTP 403 for editing its upstream description or replying to review threads. The text below is the prepared current description, including the repository checklist; the linked validation report carries the current results independently.
 
 ---
 
-Authenticated browser clients of a self-hosted workspace currently have no composer dictation. This adds an opt-in local transcription worker: record in the browser, append the result to the current draft, review it, then explicitly send.
+## What changed
 
-The browser path uses secure MediaRecorder capture and the existing session/origin/client-scope gates. Uploads are capped at 10 MiB, decoded audio at 120 seconds, and inference at one request at a time. The operator controls a loopback-only backend URL; redirects are refused. Cancellation releases capture and rejects late results, conversation switches discard pending work, and manual draft edits are preserved. The desktop capability contract still selects the native recognizer when available.
+Authenticated browser clients can optionally record microphone audio through a local transcription worker. Transcripts are appended to the draft for review and require an explicit Send. Cancellation works from the microphone button or document body as well as the textarea, including during microphone permission and transcription, while preserving IME composition.
 
-Includes an optional CPU/int8 faster-whisper worker, setup and verification recipes, and English/Brazilian Portuguese UI strings. It stays disabled until the operator configures the local worker.
+The browser path uses secure MediaRecorder capture and existing session/origin/client-scope gates. Uploads are limited to 10 MiB and decoded audio to 120 seconds. The operator configures an IPv4 loopback backend; redirects are refused. The example worker rejects browser-origin, rebinding and simple-form requests before occupying inference. Native desktop dictation keeps its capability-selected recognizer.
 
-This complements the desktop dictation work in #1813 and #2375.
+Includes an optional offline CPU/int8 faster-whisper worker, setup/verification documentation and English/Brazilian Portuguese UI strings. The browser feature stays disabled until the operator configures its worker.
 
-### Validation
+## Why
 
-- 103 targeted tests passed: API limits/concurrency/cancellation, authentication and cookie origin checks, browser draft behavior, native dictation regressions and IME.
-- Real Chromium fixture passed after rebasing: synthetic WebAudio recorded as actual WebM, authenticated API transport, cancelled capture without upload, draft review, exactly one explicit send. The transcription backend is a deterministic stand-in.
-- 3 optional Python worker tests passed, including actual audio decoding/duration bounds with a synthetic model.
-- TypeScript checks, lint, locale check, 320 Electron module syntax checks, production UI build and 102 broker tests passed.
-- Detailed local results and full-suite status: [validation report](https://github.com/EchelOneZero/OpenMausBot/blob/docs/browser-dictation-evidence-20261029/review-artifacts/browser-dictation/validation.md).
-- Electron Node suite: 1,406 passed, 8 skipped, 2 environment failures. Both failures reproduce on unmodified upstream: a chmod-denial assertion while running as root, and a temporary-directory sharing test on a separate temporary filesystem.
+Remote browser users of a self-hosted workspace currently lack composer dictation. This provides an optional local path and complements the desktop work in #1813 and #2375.
 
-Physical microphone/OS permissions, Safari/mobile behavior and recognition quality still need manual verification.
+## How it was verified
 
-### UI evidence
+- 109 targeted tests and 44 additional composer/API regression tests passed.
+- Chromium fixture passed with actual MediaRecorder WebM, Escape outside the textarea, cancellation, draft review and exactly one explicit Send.
+- Six Python worker tests passed, including browser-origin/Host/Content-Type rejection before inference.
+- Type checking, lint, locale catalogs, 322 Electron module syntax checks, production UI build and packaged-server smoke passed.
+- The compiled API transcribed synthetic Portuguese speech through an actual offline worker in a disposable home without sending a chat message.
+- The user previously confirmed a physical microphone on the original v0.1.132 backport. Other platforms and recognition quality remain manual checks.
+- [Detailed results and full-suite limitations](https://github.com/EchelOneZero/OpenMausBot/blob/docs/browser-dictation-evidence-20261029/review-artifacts/browser-dictation/validation.md). A full repository-suite pass and hosted CI pass are not claimed.
+
+Comparison base: `d124292a2aafcbed61f7ac58a0b975231df92da2`. Head: `f0933b2e96860b5966f3e09eb4bd94cb61f96426`. All listed current automated checks ran against tree `acfb7752795250f4281e6d646d3dcfb2e7bb15b1`.
+
+## Screenshots (UI changes)
 
 All screenshots use an isolated fake-engine workspace and synthetic content.
 
@@ -36,4 +45,11 @@ All screenshots use an isolated fake-engine workspace and synthetic content.
 
 </details>
 
-Comparison base: `f71928c15d2043cd8562877d350e189b859767ba`. Head: `EchelOneZero:feat/browser-server-dictation` (`ae28ca4816f279f6dd2b20604f2649f725ff99e1`). Checks above ran after the final rebase.
+
+## Checklist
+
+- [ ] `pnpm typecheck` and `pnpm test` pass locally — type checking passed; a complete `pnpm test` pass is not claimed, as detailed in the linked report.
+- [x] Server behavior changes come with regression tests.
+- [x] No `dist-server/` or other generated build output edits in the PR.
+- [x] Native desktop capability behavior retained; no `shell: true` or cmd.exe string-building.
+- [x] No secrets or recordings added to logs, responses, events or argv.
