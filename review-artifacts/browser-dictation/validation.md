@@ -1,5 +1,19 @@
 # Browser dictation validation
 
+## Latest follow-up: safe worker diagnostics (2026-10-30)
+
+The feature branch now includes commit `15e52b7f296bc7b4b266cf1a144c1a6a187f2bdd`, based on `f0933b2e96860b5966f3e09eb4bd94cb61f96426`. This addresses the CodeRabbit suggestion to emit only the unexpected exception class on stderr while retaining the generic HTTP 503 response. Exception messages, private model paths and transcripts are excluded.
+
+- All 6 isolated Python HTTP worker tests passed on this follow-up. The added diagnostic assertion failed before the fix and passed afterward. The existing concurrency, hostile-request, decoding and response-redaction checks remain in the same run.
+- `git diff --check` passed.
+- Only the Python worker, its HTTP test and the verification recipe changed. The full Node/browser/build suite was not rerun for this Python-only follow-up; results below belong to the earlier heads they identify.
+- No production deployment was performed.
+
+Review: [safe diagnostic suggestion](https://github.com/milind-soni/OpenMausBot/pull/3875#pullrequestreview-5711439681).
+
+## Earlier validation record
+
+
 Current feature head: `f0933b2e96860b5966f3e09eb4bd94cb61f96426`
 Comparison base: `d124292a2aafcbed61f7ac58a0b975231df92da2`
 Verified Git tree: `acfb7752795250f4281e6d646d3dcfb2e7bb15b1`
