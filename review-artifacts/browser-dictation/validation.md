@@ -26,10 +26,14 @@ The two Electron failures are `cloud-sync-scan.node-test.mjs` (chmod cannot deny
 
 The optional CPU worker was also exercised with generated English speech and a pre-staged offline model. It returned a complete sentence with one word substitution ("review" → "renew"). This single phrase is not an accuracy benchmark. Text remains in the draft for human review.
 
-Physical microphone and OS permission prompts, Safari/mobile capture and real-world recognition quality require manual checks.
+Manual microphone follow-up: the user confirmed microphone capture, transcription into the draft and no automatic sending in their current browser after applying the same feature patch to a self-hosted v0.1.132 installation. Browser and OS versions were not recorded. This confirms that one real client works; other platforms, Safari/mobile capture and recognition quality still require manual checks.
 
-Upstream PR: [#3875](https://github.com/milind-soni/OpenMausBot/pull/3875), open as a draft, head `ae28ca4816f279f6dd2b20604f2649f725ff99e1`, reported mergeable by GitHub. The user created it through GitHub after the integration returned HTTP 403 for PR creation.
+The v0.1.132 deployment candidate separately passed the 103 targeted tests, the Chromium fixture, three worker tests, type checking, lint, locale validation, production builds and packaged-server smoke. A disposable copy of the final package also transcribed generated Portuguese speech through the offline model without creating a chat message. Production was checked using read-only health/status and asset requests; no synthetic chat messages were sent there.
+
+Upstream PR: [#3875](https://github.com/milind-soni/OpenMausBot/pull/3875), open and ready for review (`draft: false`), head `ae28ca4816f279f6dd2b20604f2649f725ff99e1`, reported mergeable by GitHub. The user created it through GitHub after the integration returned HTTP 403 for PR creation.
 
 Hosted checks currently pending maintainer action: GitHub CI and Docker workflows report `action_required`, with no jobs started. Vercel's failed preview status links to team authorization. No hosted test pass is claimed.
 
-Local verification is concluded for this draft. The feature-specific checks passed; the complete repository suite has not been declared green. Hosted CI and physical microphone/platform checks remain pending.
+Local verification is concluded for this contribution. The feature-specific checks passed; the complete repository suite has not been declared green. Hosted CI and remaining platform checks are pending; the user's current-browser microphone check has passed.
+
+The author marked the PR ready for review. CodeRabbit began processing the 22 changed files. GitHub CI and Docker runs still require maintainer action. The integration could not update the upstream PR description (HTTP 403), so the manual validation is recorded in this linked report.
