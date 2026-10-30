@@ -48,6 +48,10 @@ python -B -m unittest discover -s deploy/dictation -p test_server.py
 The worker fixture also sends a trickling upload against an absolute deadline,
 checks the HTTP 408 response, rejects an incomplete body with HTTP 400, and
 proves that both failures release the inference slot without invoking the model.
+Worker upload deadlines use the distinct `upload_timeout` code, retained as
+HTTP 408 by the workspace route. Route and component regressions check error
+redaction, a later successful recording, and preservation of the existing draft
+without labelling a transfer timeout as invalid audio.
 The Windows component fixture declares its desktop platform before the first
 mount, so it checks the Windows capability path and browser fallback.
 

@@ -122,6 +122,17 @@ describe("private server dictation", () => {
     expect((await post()).status).toBe(200);
   });
 
+  it("preserves worker upload timeouts, redacts details and releases the transcription slot", async () => {
+    const worker = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(Response.json({ error: { code: "upload_timeout", message: "/private/audio/path" } }, { status: 408 }))
+      .mockResolvedValue(Response.json({ text: "Next recording" }));
+    const { post } = await serve(worker);
+    const response = await post();
+    expect(response.status).toBe(408);
+    expect(await response.json()).toEqual({ error: { code: "upload_timeout", message: "upload_timeout" } });
+    expect((await post()).status).toBe(200);
+  });
+
   it("does not return worker errors or paths to the client", async () => {
     const worker = vi.fn<typeof fetch>().mockResolvedValue(Response.json({ error: { code: "traceback", message: "/private/audio/path" } }, { status: 500 }));
     const { post } = await serve(worker);

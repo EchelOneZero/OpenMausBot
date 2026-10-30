@@ -3,7 +3,7 @@ import { DICTATION_MAX_BYTES, DICTATION_MAX_SECONDS } from "../../shared/dictati
 import { PASS, type RouteHandler } from "./table.ts";
 
 const AUDIO_TYPES = new Set(["audio/webm", "audio/ogg", "audio/mp4", "audio/wav", "audio/x-wav", "audio/mpeg"]);
-const ERROR_STATUS: Record<string, number> = { too_large: 413, too_long: 413, invalid_audio: 422, no_speech: 422, busy: 429 };
+const ERROR_STATUS: Record<string, number> = { too_large: 413, too_long: 413, invalid_audio: 422, no_speech: 422, busy: 429, upload_timeout: 408 };
 
 /** The transcription worker is private to this host; clients cannot choose an upstream address. */
 export function dictationServiceUrl(env: NodeJS.ProcessEnv = process.env): string | null {

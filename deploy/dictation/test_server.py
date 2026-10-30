@@ -165,7 +165,7 @@ class DictationTests(unittest.TestCase):
                 sender.start()
                 with connection.getresponse() as response:
                     stopped.set()
-                    self.assertEqual((response.status, json.load(response)), (408, {"error": {"code": "invalid_audio"}}))
+                    self.assertEqual((response.status, json.load(response)), (408, {"error": {"code": "upload_timeout"}}))
             finally:
                 stopped.set()
                 if sender:

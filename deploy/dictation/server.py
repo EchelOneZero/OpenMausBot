@@ -95,16 +95,16 @@ def handler_for(model):
                 while len(data) < size:
                     remaining = deadline - time.monotonic()
                     if remaining <= 0:
-                        raise AudioError("invalid_audio", 408)
+                        raise AudioError("upload_timeout", 408)
                     self.connection.settimeout(remaining)
                     try:
                         chunk = self.rfile.read1(min(size - len(data), 64 * 1024))
                     except TimeoutError:
-                        raise AudioError("invalid_audio", 408) from None
+                        raise AudioError("upload_timeout", 408) from None
                     if not chunk:
                         raise AudioError("invalid_audio", 400)
                     if time.monotonic() >= deadline:
-                        raise AudioError("invalid_audio", 408)
+                        raise AudioError("upload_timeout", 408)
                     data.extend(chunk)
             finally:
                 self.connection.settimeout(previous_timeout)

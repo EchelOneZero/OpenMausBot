@@ -102,6 +102,19 @@ describe("recording for review in the real composer", () => {
     expect(input().value).toBe("");
   });
 
+  it("reports transfer timeouts without labelling the audio invalid or changing the draft", async () => {
+    await mount();
+    await act(async () => restoreComposerDraft(draftId, { text: "Preserved draft", attachments: [] }));
+    await click(t("composer.dictation.start"));
+    vi.mocked(fetch).mockResolvedValueOnce(Response.json({ error: { code: "upload_timeout" } }, { status: 408 }));
+    await click(t("composer.dictation.stop"));
+    expect(container.textContent).toContain(t("composer.dictation.serverFailed"));
+    expect(container.textContent).not.toContain(t("composer.dictation.invalidAudio"));
+    expect(input().value).toBe("Preserved draft");
+    expect(trackStop).toHaveBeenCalledOnce();
+    expect(fixture.dispatch).not.toHaveBeenCalledWith(expect.objectContaining({ type: "send" }));
+  });
+
   it("cancels capture without uploading audio or changing the draft", async () => {
     await mount();
     await act(async () => restoreComposerDraft(draftId, { text: "Existing draft", attachments: [] }));
