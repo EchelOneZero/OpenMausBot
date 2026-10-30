@@ -215,4 +215,54 @@ describe("recording for review in the real composer", () => {
     expect(input().value).toBe("");
     expect(clearReply).not.toHaveBeenCalled();
   });
+
+  it.each(["microphone", "body", "transcribing"])("Escape cancels when focus is on %s rather than the textarea", async focus => {
+    await act(async () => restoreComposerDraft(draftId, { text: "Preserved draft", attachments: [] }));
+    await click(t("composer.dictation.start"));
+    if (focus === "transcribing") await click(t("composer.dictation.stop"));
+    if (focus === "microphone") {
+      button(t("composer.dictation.stop")).focus();
+      expect(document.activeElement).toBe(button(t("composer.dictation.stop")));
+    } else {
+      (document.activeElement as HTMLElement)?.blur();
+      expect(document.activeElement).toBe(document.body);
+    }
+    const escape = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
+    await act(async () => document.activeElement!.dispatchEvent(escape));
+    expect(escape.defaultPrevented).toBe(true);
+    expect(trackStop).toHaveBeenCalledOnce();
+    expect(container.textContent).not.toContain(t("composer.dictation.cancel"));
+    if (focus === "transcribing") await act(async () => complete("Cancelled text"));
+    else expect(transcriptions).toBe(0);
+    expect(input().value).toBe("Preserved draft");
+    expect(fixture.dispatch).not.toHaveBeenCalledWith(expect.objectContaining({ type: "send" }));
+    const idleEscape = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
+    document.body.dispatchEvent(idleEscape);
+    expect(idleEscape.defaultPrevented).toBe(false);
+  });
+
+  it("Escape on the body discards a microphone granted after cancellation", async () => {
+    let grant!: (stream: unknown) => void;
+    getUserMedia.mockImplementationOnce(() => new Promise(resolve => { grant = resolve; }));
+    await click(t("composer.dictation.start"));
+    (document.activeElement as HTMLElement)?.blur();
+    await act(async () => document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
+    expect(container.textContent).not.toContain(t("composer.dictation.starting"));
+    await act(async () => grant({ getTracks: () => [{ stop: trackStop }] }));
+    expect(trackStop).toHaveBeenCalledOnce();
+    expect(transcriptions).toBe(0);
+  });
+
+  it.each([{ isComposing: true }, { keyCode: 229 }])("preserves IME composition before cancelling from the microphone button: %j", async composition => {
+    await click(t("composer.dictation.start"));
+    button(t("composer.dictation.stop")).focus();
+    const escape = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true, ...composition });
+    await act(async () => document.activeElement!.dispatchEvent(escape));
+    expect(escape.defaultPrevented).toBe(false);
+    expect(trackStop).not.toHaveBeenCalled();
+    expect(button(t("composer.dictation.stop"))).toBeDefined();
+    await act(async () => document.activeElement!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
+    expect(trackStop).toHaveBeenCalledOnce();
+    expect(transcriptions).toBe(0);
+  });
 });

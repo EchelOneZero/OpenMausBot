@@ -84,6 +84,11 @@ describe("server dictation through the real browser and authenticated fixture", 
     expect(uploads).toHaveLength(0);
     expect(await input()).toBe("");
     await ui("click", "--name", "Start dictation");
+    expect(await evaluate('document.activeElement?.getAttribute("aria-label")')).toBe("Stop dictation");
+    await ui("press", "--keys", "Escape");
+    await expect.poll(() => evaluate('Boolean(document.querySelector(\'button[aria-label="Start dictation"]\'))')).toBe(true);
+    expect(uploads).toHaveLength(0);
+    await ui("click", "--name", "Start dictation");
     await ui("screenshot", "--out", join(evidence, "recording.png"));
     await ui("click", "--name", "Stop dictation");
     try {
@@ -96,6 +101,15 @@ describe("server dictation through the real browser and authenticated fixture", 
     expect([...uploads[0]!.subarray(0, 4)]).toEqual([0x1a, 0x45, 0xdf, 0xa3]);
     expect(await userTexts()).toEqual([]);
     await ui("screenshot", "--out", join(evidence, "transcribing.png"));
+    expect(await evaluate('document.activeElement?.blur(); document.activeElement === document.body')).toBe(true);
+    await ui("press", "--keys", "Escape");
+    complete!();
+    await expect.poll(() => evaluate('Boolean(document.querySelector(\'button[aria-label="Start dictation"]\'))')).toBe(true);
+    expect(await input()).toBe("");
+    expect(await userTexts()).toEqual([]);
+    await ui("click", "--name", "Start dictation");
+    await ui("click", "--name", "Stop dictation");
+    await expect.poll(() => uploads.length, { timeout: 15_000 }).toBe(2);
     complete!();
     await expect.poll(input).toBe("A sentence to review before sending.");
     expect(await userTexts()).toEqual([]);
@@ -103,7 +117,7 @@ describe("server dictation through the real browser and authenticated fixture", 
     await ui("click", "--name", "Send message");
     await expect.poll(userTexts, { timeout: 30_000 }).toEqual(["A sentence to review before sending."]);
     expect(await input()).toBe("");
-    expect(uploads).toHaveLength(1);
+    expect(uploads).toHaveLength(2);
     await ui("wait-settle", "--timeout", "30");
     console.log(JSON.stringify({ fixtureLog: info.logPath, evidence, reviewedBeforeSend: true }));
   }, 300_000);

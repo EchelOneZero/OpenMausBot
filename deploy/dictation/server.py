@@ -10,6 +10,7 @@ import numpy as np
 MAX_BYTES = 10 * 1024 * 1024
 MAX_SECONDS = 120
 SAMPLE_RATE = 16000
+AUDIO_TYPES = {"audio/webm", "audio/ogg", "audio/mp4", "audio/wav", "audio/x-wav", "audio/mpeg"}
 
 
 class AudioError(Exception):
@@ -19,6 +20,7 @@ class AudioError(Exception):
 
 
 def decode_bounded_audio(data):
+    """Decode the HTTP audio payload to mono PCM without exceeding the duration budget."""
     samples = []
     count = 0
     try:
@@ -67,12 +69,28 @@ def handler_for(model):
             except (BrokenPipeError, ConnectionResetError):
                 pass
 
+        def trusted_request(self):
+            """Refuse browser callers and DNS rebinding before they can occupy inference."""
+            expected_host = f"127.0.0.1:{self.server.server_port}"
+            if (self.headers.get_all("Host") != [expected_host]
+                    or self.headers.get("Origin") is not None
+                    or any(self.headers.get(name) is not None for name in ("Sec-Fetch-Site", "Sec-Fetch-Dest", "Sec-Fetch-User"))):
+                self.reply(403, {"error": {"code": "forbidden"}})
+                return False
+            return True
+
         def do_GET(self):
+            if not self.trusted_request():
+                return
             self.reply(200, {"ready": True}) if self.path == "/health" else self.reply(404, {"error": {"code": "not_found"}})
 
         def do_POST(self):
+            if not self.trusted_request():
+                return
             if self.path != "/transcribe":
                 return self.reply(404, {"error": {"code": "not_found"}})
+            if self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower() not in AUDIO_TYPES:
+                return self.reply(415, {"error": {"code": "invalid_audio"}})
             if not occupied.acquire(blocking=False):
                 return self.reply(429, {"error": {"code": "busy"}})
             try:

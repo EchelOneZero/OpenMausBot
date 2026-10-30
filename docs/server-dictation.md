@@ -70,6 +70,12 @@ credentials, path overrides and redirects. Clients cannot select a backend
 URL or access the worker directly through this API. The endpoints use the
 existing session, origin and client-scope gates.
 
+The example worker accepts only its exact `127.0.0.1:PORT` Host header,
+refuses Origin and browser-only fetch-metadata headers, and requires an audio
+Content-Type before occupying its inference slot. This prevents web pages
+from bypassing the workspace API with simple form uploads or DNS rebinding.
+Local processes on the server remain within the operator's trust boundary.
+
 The worker decodes at most 120 seconds, runs one inference at a time, and
 keeps audio in memory. Neither the API nor the worker saves recordings or
 logs transcript contents. Returned text enters the app's normal draft

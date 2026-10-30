@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api, ApiError } from "@/state/api";
 import { DICTATION_MAX_BYTES, DICTATION_MAX_SECONDS, type ServerDictationResult, type ServerDictationStatus } from "../../shared/dictation";
 import { activeLocale, t } from "./i18n";
+import { imeComposing } from "./send-key";
 
 const STOP_MARGIN_SECONDS = 2;
 const AUDIO_TYPES = ["audio/webm;codecs=opus", "audio/ogg;codecs=opus", "audio/mp4"];
@@ -84,6 +85,18 @@ export function useServerDictation({ draftId, text, onText, enabled }: {
 
   useEffect(() => () => cancel(), [draftId, enabled, cancel]);
 
+  useEffect(() => {
+    if (phase === "idle") return;
+    const escape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || imeComposing(event)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      cancel();
+    };
+    document.addEventListener("keydown", escape, true);
+    return () => document.removeEventListener("keydown", escape, true);
+  }, [phase, cancel]);
+
   const finish = useCallback((capture: Capture) => {
     if (current.current !== capture || !capture.recorder || capture.recorder.state === "inactive") return;
     clearTimeout(capture.timer);
@@ -114,6 +127,7 @@ export function useServerDictation({ draftId, text, onText, enabled }: {
       recorder.onerror = () => { if (current.current === capture) { cancel(); setError(t("composer.dictation.failed")); } };
       recorder.onstop = async () => {
         stream.getTracks().forEach((track) => track.stop());
+        capture.stream = null;
         if (current.current !== capture) return;
         clearTimeout(capture.timer);
         setPhase("transcribing");

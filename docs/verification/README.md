@@ -62,6 +62,7 @@ Use only mapped, tested commands:
 - [Chat UI, driven headlessly](chat-ui.md)
 - [Computer panel focus hand-off](computer-panel-focus.md)
 - [Taking control of a bot's computer](take-control.md)
+- [Saved steps: repeating a computer task without AI](saved-steps.md)
 - [Native dictation retention and send-to-stop](dictation.md)
 - [Browser dictation through a local transcription worker](server-dictation.md)
 - [Proactive routines and the brief](proactive-routines.md)
@@ -228,7 +229,8 @@ roles and device revocation through the real HTTP API with a stubbed email
 service. It does not drive the People settings UI through `control-omb`.
 
 The [sidebar fixture](sidebar.md) checks archive and delete confirmations, their
-default focus, keyboard wrapping and focus return against two disposable bots.
+default focus, keyboard wrapping and focus return against two disposable bots;
+its departments recipe drags bots to reorder them and into new departments.
 
 The [sidebar attention geometry fixture](sidebar-attention.md) measures the
 Active Threads popover's width and inset at each expanded sidebar density in a

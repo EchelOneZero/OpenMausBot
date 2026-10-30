@@ -32,6 +32,10 @@ The component tests cover permission denial, late microphone grants,
 unsupported/insecure browsers, cancellation during capture and transcription,
 conversation changes, manual editing and the duration limit. The existing
 native dictation regression tests run alongside them.
+Escape is also checked with focus on the microphone button or document body,
+while opening the microphone and during transcription, including IME guards
+and a late microphone grant. The Chromium fixture presses Escape outside
+the textarea during both recording and transcription.
 
 After installing the optional worker's dependencies in an isolated Python
 environment, test decoding, duration limits, concurrent inference refusal,
@@ -40,6 +44,10 @@ empty speech and error redaction without downloading a model:
 ```sh
 python -B -m unittest discover -s deploy/dictation -p test_server.py
 ```
+
+The worker checks include browser Origin/fetch metadata, unexpected or
+duplicate Host headers, simple browser Content-Types, and refusal before
+inference even when an authorized transcription is already running.
 
 To check real recognition, separately stage a model as described in
 [server dictation](../server-dictation.md), generate a WAV containing synthetic

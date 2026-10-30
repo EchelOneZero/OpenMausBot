@@ -5,6 +5,7 @@ import unittest
 import urllib.error
 import urllib.request
 import wave
+from http.client import HTTPConnection
 from http.server import ThreadingHTTPServer
 from types import SimpleNamespace
 
@@ -47,6 +48,7 @@ class DictationTests(unittest.TestCase):
             thread.start()
             try:
                 self.assertTrue(started.wait(5))
+                self.assertEqual(self.post(base, wav(), {"Origin": "https://untrusted.example"}), (403, {"error": {"code": "forbidden"}}))
                 self.assertEqual(self.post(base, wav()), (429, {"error": {"code": "busy"}}))
             finally:
                 release.set()
@@ -66,11 +68,64 @@ class DictationTests(unittest.TestCase):
             with urllib.request.urlopen(base + "/health") as response:
                 self.assertEqual(json.load(response), {"ready": True})
             self.assertEqual(self.post(base, wav()), (200, {"text": "Review this."}))
+            self.assertEqual(self.post(base, wav(), {"Sec-Fetch-Mode": "cors"}), (200, {"text": "Review this."}))
             self.assertEqual(options[0]["language"], "pt")
             self.assertEqual(self.post(base, b"invalid"), (422, {"error": {"code": "invalid_audio"}}))
             self.assertEqual(self.post(base, b"x", {"Content-Length": str(server.MAX_BYTES + 1)}), (413, {"error": {"code": "too_large"}}))
         with self.worker(SimpleNamespace(transcribe=lambda *_args, **_kwargs: (iter([]), None))) as base:
             self.assertEqual(self.post(base, wav()), (422, {"error": {"code": "no_speech"}}))
+
+    def test_rejects_browser_and_rebinding_requests_before_inference(self):
+        calls = []
+
+        def transcribe(_audio, **_options):
+            calls.append(True)
+            return iter([SimpleNamespace(text="Reviewed text.")]), None
+
+        with self.worker(SimpleNamespace(transcribe=transcribe)) as base:
+            for headers in [
+                {"Origin": "https://untrusted.example"}, {"Origin": "null"}, {"Origin": ""},
+                {"Host": "rebound.example"}, {"Host": "127.0.0.1"},
+                {"Sec-Fetch-Site": "cross-site"}, {"Sec-Fetch-Site": "same-origin"},
+                {"Sec-Fetch-Dest": "empty"},
+            ]:
+                with self.subTest(headers=headers):
+                    self.assertEqual(self.post(base, wav(), headers), (403, {"error": {"code": "forbidden"}}))
+                    request = urllib.request.Request(base + "/health", headers=headers)
+                    with self.assertRaises(urllib.error.HTTPError) as error:
+                        urllib.request.urlopen(request, timeout=5)
+                    self.assertEqual(error.exception.code, 403)
+                    error.exception.close()
+            self.assertEqual(calls, [])
+            self.assertEqual(self.post(base, wav()), (200, {"text": "Reviewed text."}))
+            self.assertEqual(calls, [True])
+
+    def test_rejects_simple_browser_content_types_before_decoding(self):
+        calls = []
+
+        def transcribe(_audio, **_options):
+            calls.append(True)
+            return iter([SimpleNamespace(text="Reviewed text.")]), None
+
+        with self.worker(SimpleNamespace(transcribe=transcribe)) as base:
+            for media_type in ["text/plain", "text/plain;charset=UTF-8", "application/x-www-form-urlencoded", "multipart/form-data", ""]:
+                with self.subTest(media_type=media_type):
+                    self.assertEqual(self.post(base, wav(), {"Content-Type": media_type}), (415, {"error": {"code": "invalid_audio"}}))
+            self.assertEqual(calls, [])
+            self.assertEqual(self.post(base, wav(), {"Content-Type": "audio/wav; codecs=pcm"}), (200, {"text": "Reviewed text."}))
+
+    def test_rejects_duplicate_host_headers(self):
+        with self.worker(SimpleNamespace(transcribe=lambda *_args, **_kwargs: (iter([]), None))) as base:
+            connection = HTTPConnection("127.0.0.1", int(base.rsplit(":", 1)[1]), timeout=5)
+            try:
+                connection.putrequest("GET", "/health", skip_host=True)
+                connection.putheader("Host", base.removeprefix("http://"))
+                connection.putheader("Host", "rebound.example")
+                connection.endheaders()
+                with connection.getresponse() as response:
+                    self.assertEqual(response.status, 403)
+            finally:
+                connection.close()
 
     @staticmethod
     def post(base, audio, headers=None):
