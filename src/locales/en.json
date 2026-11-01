@@ -6927,5 +6927,7 @@
   "composer.dictation.noSpeech": "No speech was detected. Try recording again.",
   "composer.dictation.serverBusy": "Another recording is being transcribed. Wait a moment and try again.",
   "composer.dictation.invalidAudio": "This recording could not be read. Try recording again.",
+  "composer.dictation.uploadTimeout": "The recording upload timed out. Check your connection and try again.",
+  "composer.dictation.transcriptionTimeout": "The transcription request timed out. Try again.",
   "composer.dictation.serverFailed": "The recording could not be transcribed. Try again."
 }

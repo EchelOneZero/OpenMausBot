@@ -52,6 +52,9 @@ Worker upload deadlines use the distinct `upload_timeout` code, retained as
 HTTP 408 by the workspace route. Route and component regressions check error
 redaction, a later successful recording, and preservation of the existing draft
 without labelling a transfer timeout as invalid audio.
+Composer cases cover separate upload and transcription timeout messages in
+English and Brazilian Portuguese, retain the draft and release the microphone,
+and allow a later recording to succeed without sending automatically.
 The Windows component fixture declares its desktop platform before the first
 mount, so it checks the Windows capability path and browser fallback.
 

@@ -4,7 +4,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Bot } from "@/state/store";
 import { restoreComposerDraft } from "@/lib/drafts";
-import { t } from "@/lib/i18n";
+import { activeLocale, setLocale, t } from "@/lib/i18n";
 
 const fixture = vi.hoisted(() => ({ dispatch: vi.fn() }));
 vi.mock("@/state/store", async importOriginal => {
@@ -39,6 +39,7 @@ class Recorder {
 
 describe("recording for review in the real composer", () => {
   let root: Root;
+  let previousLocale: string;
   let container: HTMLDivElement;
   let complete: (text: string) => void;
   let transcriptions: number;
@@ -51,6 +52,7 @@ describe("recording for review in the real composer", () => {
   const mount = async (profile = bot) => act(async () => { root.render(createElement(Composer, { bot: profile })); });
 
   beforeEach(() => {
+    previousLocale = activeLocale();
     vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
     vi.spyOn(HTMLElement.prototype, "scrollIntoView").mockImplementation(() => {});
     vi.stubGlobal("isSecureContext", true);
@@ -79,6 +81,7 @@ describe("recording for review in the real composer", () => {
     if (mediaDescriptor) Object.defineProperty(navigator, "mediaDevices", mediaDescriptor);
     else Reflect.deleteProperty(navigator, "mediaDevices");
     delete window.ogb;
+    setLocale(previousLocale);
     vi.restoreAllMocks();vi.unstubAllGlobals();
   });
 
@@ -102,16 +105,29 @@ describe("recording for review in the real composer", () => {
     expect(input().value).toBe("");
   });
 
-  it("reports transfer timeouts without labelling the audio invalid or changing the draft", async () => {
+  it.each([
+    ["en", "upload_timeout", 408, "composer.dictation.uploadTimeout"],
+    ["en", "timeout", 504, "composer.dictation.transcriptionTimeout"],
+    ["pt-br", "upload_timeout", 408, "composer.dictation.uploadTimeout"],
+    ["pt-br", "timeout", 504, "composer.dictation.transcriptionTimeout"],
+  ] as const)("explains %s/%s without losing the draft and allows another recording", async (locale, code, status, messageKey) => {
+    setLocale(locale);
     await mount();
     await act(async () => restoreComposerDraft(draftId, { text: "Preserved draft", attachments: [] }));
     await click(t("composer.dictation.start"));
-    vi.mocked(fetch).mockResolvedValueOnce(Response.json({ error: { code: "upload_timeout" } }, { status: 408 }));
+    vi.mocked(fetch).mockResolvedValueOnce(Response.json({ error: { code } }, { status }));
     await click(t("composer.dictation.stop"));
-    expect(container.textContent).toContain(t("composer.dictation.serverFailed"));
+    expect(container.textContent).toContain(t(messageKey));
+    expect(container.textContent).not.toContain(t("composer.dictation.serverFailed"));
     expect(container.textContent).not.toContain(t("composer.dictation.invalidAudio"));
     expect(input().value).toBe("Preserved draft");
     expect(trackStop).toHaveBeenCalledOnce();
+    expect(fixture.dispatch).not.toHaveBeenCalledWith(expect.objectContaining({ type: "send" }));
+    await click(t("composer.dictation.start"));
+    await click(t("composer.dictation.stop"));
+    await act(async () => complete("Recovered text."));
+    expect(input().value).toBe("Preserved draft Recovered text.");
+    expect(container.textContent).not.toContain(t(messageKey));
     expect(fixture.dispatch).not.toHaveBeenCalledWith(expect.objectContaining({ type: "send" }));
   });
 

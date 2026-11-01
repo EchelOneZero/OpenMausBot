@@ -27,6 +27,8 @@ function errorMessage(error: unknown): string {
   if (code === "no_speech") return t("composer.dictation.noSpeech");
   if (code === "busy") return t("composer.dictation.serverBusy");
   if (code === "invalid_audio") return t("composer.dictation.invalidAudio");
+  if (code === "upload_timeout") return t("composer.dictation.uploadTimeout");
+  if (code === "timeout") return t("composer.dictation.transcriptionTimeout");
   return t("composer.dictation.serverFailed");
 }
 
